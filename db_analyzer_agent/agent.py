@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+MODEL_NAME = os.environ.get("GOOGLE_GENAI_MODEL", "gemini-2.5-pro")
+
 from sqlalchemy import create_engine, inspect, text
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.agents.parallel_agent import ParallelAgent
@@ -235,7 +237,8 @@ def run_read_only_sql_tool(query: str) -> str:
 # ==========================================
 connection_expert_agent = LlmAgent(
     name="DBConnectionExpertAgent",
-    model="gemini-2.5-pro",
+    model=MODEL_NAME,
+    description="負責接收連線參數並調用工具驗證資料庫通道狀態的專家。",
     instruction="""
     你是資深的資料庫連線與環境診斷專家 (DBConnectionExpertAgent)。
     【核心任務】：
@@ -254,7 +257,8 @@ connection_expert_agent = LlmAgent(
 # ==========================================
 schema_agent = LlmAgent(
     name="SchemaAgent",
-    model="gemini-2.5-pro",
+    model=MODEL_NAME,
+    description="調用 get_schema_tool 讀取資料表名稱、欄位與資料型態。",
     instruction=(
         "你是負責分析資料庫架構的專家。請調用 `get_schema_tool` 工具讀取已連線資料庫的結構，"
         "整理並明確列出所有資料表名稱、欄位與資料型態。"
@@ -265,7 +269,8 @@ schema_agent = LlmAgent(
 
 relation_agent = LlmAgent(
     name="RelationAgent",
-    model="gemini-2.5-pro",
+    model=MODEL_NAME,
+    description="調用 get_relations_tool 分析外鍵與關聯性。",
     instruction=(
         "你是負責資料表關聯性分析的專家。請調用 `get_relations_tool` 工具獲取外鍵限制，"
         "並依據資料表與欄位名稱（例如 user_id, order_id 等），明確推導並列出資料表之間的關聯（如 1對多、多對多）。"
@@ -276,7 +281,8 @@ relation_agent = LlmAgent(
 
 sampler_agent = LlmAgent(
     name="SamplerAgent",
-    model="gemini-2.5-pro",
+    model=MODEL_NAME,
+    description="調用 get_sample_data_tool 抽樣真實資料並說明欄位意義。",
     instruction=(
         "你是資料抽樣與業務樣貌分析專家。請對核心表格調用 `get_sample_data_tool` 工具進行抽樣，"
         "說明各表格代表的實體資料樣貌與欄位意義。"
@@ -287,6 +293,7 @@ sampler_agent = LlmAgent(
 
 parallel_explore = ParallelAgent(
     name="ParallelDBExplorer",
+    description="平行調度 SchemaAgent、RelationAgent 與 SamplerAgent 同步進行多維度探索。",
     sub_agents=[schema_agent, relation_agent, sampler_agent]
 )
 
@@ -295,7 +302,8 @@ parallel_explore = ParallelAgent(
 # ==========================================
 writer_agent = LlmAgent(
     name="SystemLogicWriterAgent",
-    model="gemini-2.5-pro",
+    model=MODEL_NAME,
+    description="根據探索結果推導系統業務架構、模組與流程，提出假設。",
     instruction=(
         "根據探索階段收集到的資料庫結構與關聯，深入推導並撰寫該系統對應的業務模組架構、"
         "核心功能以及業務運作流程。請提出具體的業務邏輯假設供 SQL 驗證。"
@@ -304,7 +312,8 @@ writer_agent = LlmAgent(
 
 tester_agent = LlmAgent(
     name="SQLValidationAgent",
-    model="gemini-2.5-pro",
+    model=MODEL_NAME,
+    description="編寫唯讀 SQL 進行實體驗證，驗證通過則呼叫 exit_loop 結束迴圈。",
     instruction=(
         "根據 WriterAgent 提出的業務功能假設，編寫關鍵驗證 SQL 並調用 `run_read_only_sql_tool` 進行驗證。"
         "只要推論合乎資料庫邏輯架構，請呼叫 exit_loop 結束迴圈，以順利將成果傳遞給下一個階段；"
@@ -315,6 +324,7 @@ tester_agent = LlmAgent(
 
 iterative_loop = LoopAgent(
     name="IterativeValidationLoop",
+    description="由業務推導專家與 SQL 驗證專家進行迭代驗證，驗證完畢後退出迴圈。",
     sub_agents=[writer_agent, tester_agent],
     max_iterations=2
 )
@@ -324,7 +334,8 @@ iterative_loop = LoopAgent(
 # ==========================================
 html_report_agent = LlmAgent(
     name="HTMLReportAgent",
-    model="gemini-2.5-pro",
+    model=MODEL_NAME,
+    description="整合所有分析成果，生成現代 Tailwind CSS 單頁視覺化 HTML 報告。",
     instruction="""
     你是專業的網頁前端工程師與技術文案編輯。
     請接收前面所有 Agent 分析出來的「連線資訊、系統架構、資料表關聯與業務邏輯」，將其整合為一份【完整、單一檔案且視覺美觀】的 HTML 網頁。
@@ -345,6 +356,7 @@ html_report_agent = LlmAgent(
 # ==========================================
 db_analysis_pipeline = SequentialAgent(
     name="CompleteDBToHTMLPipeline",
+    description="完整的資料庫分析 Pipeline：連線驗證 -> 平行結構探索 -> 迭代業務推導與驗證 -> 生成 HTML 報告。",
     sub_agents=[
         connection_expert_agent,  # 0. 連線專家：真實認證帳密與資料庫
         parallel_explore,         # 1. 平行探索：真實讀取 Schema, 外鍵與抽樣
@@ -352,6 +364,9 @@ db_analysis_pipeline = SequentialAgent(
         html_report_agent         # 3. HTML 報告生成
     ]
 )
+
+# ADK CLI 規範的 root_agent 進入點
+root_agent = db_analysis_pipeline
 
 
 def extract_html(raw_text: str) -> str:

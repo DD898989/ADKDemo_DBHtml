@@ -3,6 +3,8 @@
 基於 Google GenAI **Agent Development Kit (ADK)** 與 **Gemini 2.5 Pro** 的多 Agent 協同資料庫分析系統。
 由第一階段的**「資料庫連線專家」**率先接收連線資訊並測試通道，隨後由探索 Agent 分析 Schema、關聯與數據樣貌，再由業務專家迭代推導業務邏輯並驗證，最終生成美觀現代的 Tailwind CSS 單頁 HTML 分析報告。
 
+本專案符合 Google ADK 官方規範，同時支援 **官方視覺化 ADK Web UI**（提供互動式拓撲 Workflow 圖與節點詳情）以及 **客製化 Streamlit 儀表板**（提供完整連線表單與 HTML 報告即時預覽）。
+
 ---
 
 ## 🏗️ 系統架構 (Agent Pipeline)
@@ -32,6 +34,23 @@
 
 ---
 
+## 📁 專案目錄結構
+
+```text
+MyADK/
+├── db_analyzer_agent/           # 符合 Google ADK 規範的 Agent 模組
+│   ├── __init__.py              # 匯出 agent 模組
+│   └── agent.py                 # 定義 Tools、Pipeline 與 root_agent 進入點
+├── adk_db_html_analyzer_py.py   # 向後相容層 (轉發 db_analyzer_agent.agent)
+├── app.py                       # Streamlit 前端應用程式
+├── RUN.bat                      # 啟動 Streamlit 介面
+├── RUN_ADK_WEB.bat              # 啟動 Google ADK 官方 Web UI
+├── requirements.txt             # 專案相依套件清單
+└── README.md
+```
+
+---
+
 ## 🚀 快速開始
 
 ### 1. 安裝相依套件
@@ -47,23 +66,37 @@ pip install -r requirements.txt
 GOOGLE_API_KEY="您的_GEMINI_API_KEY"
 ```
 
-### 3. 啟動前端介面
+---
+
+## 🖥️ 兩種運行模式
+
+### 模式 A：Google ADK 官方 Web UI (推薦用於架構觀察與節點除錯)
+
+提供互動式 **Workflow 拓撲圖** 與 **節點檢查器 (Node Inspector)**：
+
+```bash
+adk web .
+```
+或雙擊執行 `RUN_ADK_WEB.bat`。
+
+* 開啟瀏覽器訪問：`http://localhost:8000`
+* **特色**：
+  - 完整展示 SequentialAgent、ParallelDBExplorer (平行分支)、IterativeValidationLoop (迴圈) 之 Workflow 圖。
+  - 點擊任何 Agent 或 Tool 節點，可在右側檢視 Prompt (Instruction)、模型 (Model)、綁定工具 (Tools) 與執行 Trace。
+
+---
+
+### 模式 B：Streamlit 業務儀表板 (推薦用於終端用戶與產出報告)
+
+提供直覺的資料庫連線參數表單與單頁 HTML 報告渲染：
 
 ```bash
 streamlit run app.py
 ```
+或雙擊執行 `RUN.bat`。
 
-啟動後於瀏覽器開啟 `http://localhost:8501`。
-
----
-
-## 介面功能特色
-
-1. **資料庫連線專家表單**：
-   - 側邊欄提供專門表單輸入 `dbtype`（PostgreSQL、MySQL、SQL Server、Oracle、SQLite 等）、`IP/Host`、`Port`、`Username`、`Password` 與 `Database`。
-   - 附帶「測試資料庫連線」按鈕可立即測試網路通道通訊。
-2. **即時 Agent 執行監控**：
-   - 即時標記各 Agent 身分（`DBConnectionExpertAgent`、`SchemaAgent`、`RelationAgent`、`SamplerAgent`、`SystemLogicWriterAgent`、`SQLValidationAgent`、`HTMLReportAgent`）。
-3. **成果展示**：
-   - **互動 HTML 報告預覽**：直接渲染 Tailwind CSS 網頁。
-   - **HTML 原始碼與下載**：一鍵下載單頁 HTML 報告檔案 (`database_report.html`)。
+* 開啟瀏覽器訪問：`http://localhost:8501`
+* **特色**：
+  - **資料庫連線專家表單**：側邊欄快速配置 PostgreSQL、MySQL、SQL Server、Oracle、SQLite 等連線參數，並提供連線測試按鈕。
+  - **即時串流監控**：即時查看各 Agent 執行動態。
+  - **HTML 報告預覽與下載**：直接在頁面上預覽 Tailwind CSS 報告並一鍵下載 `database_report.html`。
