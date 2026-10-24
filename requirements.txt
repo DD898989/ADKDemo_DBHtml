@@ -1,0 +1,6 @@
+streamlit>=1.30.0
+google-adk>=1.14.0
+python-dotenv
+sqlalchemy>=2.0.0
+pymysql
+psycopg2-binary
